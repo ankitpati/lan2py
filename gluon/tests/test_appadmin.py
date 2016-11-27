@@ -4,22 +4,19 @@
 """
     Unit tests for gluon.sqlhtml
 """
+from __future__ import print_function
 import os
 import sys
 import unittest
-import json
-
-from fix_path import fix_sys_path
-
-fix_sys_path(__file__)
 
 
-from compileapp import run_controller_in, run_view_in
-from languages import translator
+from gluon.compileapp import run_controller_in, run_view_in, compile_application, remove_compiled_application
+from gluon.languages import translator
 from gluon.storage import Storage, List
-import gluon.fileutils
+from gluon import fileutils
 from gluon.dal import DAL, Field, Table
 from gluon.http import HTTP
+from gluon.fileutils import open_file
 
 DEFAULT_URI = os.getenv('DB', 'sqlite:memory')
 
@@ -34,14 +31,15 @@ class TestAppAdmin(unittest.TestCase):
     def setUp(self):
         from gluon.globals import Request, Response, Session, current
         from gluon.html import A, DIV, FORM, MENU, TABLE, TR, INPUT, URL, XML
+        from gluon.html import ASSIGNJS
         from gluon.validators import IS_NOT_EMPTY
-        from compileapp import LOAD
+        from gluon.compileapp import LOAD
         from gluon.http import HTTP, redirect
         from gluon.tools import Auth
         from gluon.sql import SQLDB
         from gluon.sqlhtml import SQLTABLE, SQLFORM
-        self.original_check_credentials = gluon.fileutils.check_credentials
-        gluon.fileutils.check_credentials = fake_check_credentials
+        self.original_check_credentials = fileutils.check_credentials
+        fileutils.check_credentials = fake_check_credentials
         request = Request(env={})
         request.application = 'welcome'
         request.controller = 'appadmin'
@@ -72,7 +70,7 @@ class TestAppAdmin(unittest.TestCase):
         self.env = locals()
 
     def tearDown(self):
-        gluon.fileutils.check_credentials = self.original_check_credentials
+        fileutils.check_credentials = self.original_check_credentials
 
     def run_function(self):
         return run_controller_in(self.env['request'].controller, self.env['request'].function, self.env)
@@ -80,15 +78,30 @@ class TestAppAdmin(unittest.TestCase):
     def run_view(self):
         return run_view_in(self.env)
 
-    def test_index(self):
+    def run_view_file_stream(self):
+        view_path = os.path.join(self.env['request'].folder, 'views', 'appadmin.html')
+        self.env['response'].view = open_file(view_path, 'r')
+        return run_view_in(self.env)
+
+    def _test_index(self):
         result = self.run_function()
         self.assertTrue('db' in result['databases'])
         self.env.update(result)
         try:
             self.run_view()
+            self.run_view_file_stream()
         except Exception as e:
-            print e.message
+            print(e.message)
             self.fail('Could not make the view')
+
+    def test_index(self):
+        self._test_index()
+
+    def test_index_compiled(self):
+        appname_path = os.path.join(os.getcwd(), 'applications', 'welcome')
+        compile_application(appname_path)
+        self._test_index()
+        remove_compiled_application(appname_path)
 
     def test_select(self):
         request = self.env['request']
@@ -102,7 +115,7 @@ class TestAppAdmin(unittest.TestCase):
         try:
             self.run_view()
         except Exception as e:
-            print e.message
+            print(e.message)
             self.fail('Could not make the view')
 
     def test_insert(self):
@@ -116,7 +129,7 @@ class TestAppAdmin(unittest.TestCase):
         try:
             self.run_view()
         except Exception as e:
-            print e.message
+            print(e.message)
             self.fail('Could not make the view')
 
     def test_insert_submit(self):
@@ -138,7 +151,7 @@ class TestAppAdmin(unittest.TestCase):
         try:
             self.run_view()
         except Exception as e:
-            print e.message
+            print(e.message)
             self.fail('Could not make the view')
         db = self.env['db']
         lisa_record = db(db.auth_user.username == 'lisasimpson').select().first()
@@ -164,6 +177,3 @@ class TestAppAdmin(unittest.TestCase):
         request._vars = data
         self.assertRaises(HTTP, self.run_function)
 
-
-if __name__ == '__main__':
-    unittest.main()

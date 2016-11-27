@@ -10,18 +10,24 @@
 # for more details.
 
 "Pythonic simple JSON RPC Client implementation"
+from __future__ import print_function
 
 __author__ = "Mariano Reingart (reingart@gmail.com)"
 __copyright__ = "Copyright (C) 2011 Mariano Reingart"
 __license__ = "LGPL 3.0"
 __version__ = "0.05"
 
+import sys
+PY2 = sys.version_info[0] == 2
 
 import urllib
-from xmlrpclib import Transport, SafeTransport
-from cStringIO import StringIO
+if PY2:
+    from xmlrpclib import Transport, SafeTransport
+    from cStringIO import StringIO
+else:
+    from xmlrpc.client import Transport, SafeTransport
+    from io import StringIO
 import random
-import sys
 import json
 
 
@@ -105,7 +111,7 @@ class ServerProxy(object):
         "JSON RPC communication (method invocation)"
 
         # build data sent to the service
-        request_id = random.randint(0, sys.maxint)
+        request_id = random.randint(0, sys.maxsize)
         data = {'id': request_id, 'method': method, 'params': args, }
         if self.version:
             data['jsonrpc'] = self.version #mandatory key/value for jsonrpc2 validation else err -32600
@@ -145,4 +151,4 @@ if __name__ == "__main__":
     # basic tests:
     location = "http://www.web2py.com.ar/webservices/sample/call/jsonrpc"
     client = ServerProxy(location, verbose='--verbose' in sys.argv,)
-    print client.add(1, 2)
+    print(client.add(1, 2))
